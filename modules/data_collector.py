@@ -104,39 +104,45 @@ class DataCollector:
         return []
         
     def _parse_match(self, match_data: Dict, team_id: int) -> Dict:
-        """Parse historical match data"""
-        fixture = match_data['fixture']
-        teams = match_data['teams']
-        goals = match_data['goals']
-        score = match_data['score']
-        
-        is_home = teams['home']['id'] == team_id
-        opponent = teams['away']['name'] if is_home else teams['home']['name']
-        
-        team_goals = goals['home'] if is_home else goals['away']
-        opponent_goals = goals['away'] if is_home else goals['home']
-        
-        ht_team = score['halftime']['home'] if is_home else score['halftime']['away']
-        ht_opponent = score['halftime']['away'] if is_home else score['halftime']['home']
-        
-        return {
-            'match_id': fixture['id'],
-            'date': fixture['date'],
-            'competition': match_data['league']['name'],
-            'is_home': is_home,
-            'opponent': opponent,
-            'team_goals': team_goals,
-            'opponent_goals': opponent_goals,
-            'total_goals': team_goals + opponent_goals,
-            'ht_team_goals': ht_team,
-            'ht_opponent_goals': ht_opponent,
-            'ht_total': ht_team + ht_opponent,
-            'result': 'W' if team_goals > opponent_goals else ('D' if team_goals == opponent_goals else 'L'),
-            'clean_sheet': opponent_goals == 0,
-            'btts': team_goals > 0 and opponent_goals > 0,
-            'over_2_5': (team_goals + opponent_goals) > 2.5,
-            'over_1_5_ht': (ht_team + ht_opponent) > 1.5
-        }
+    """Parse historical match data"""
+    fixture = match_data['fixture']
+    teams = match_data['teams']
+    goals = match_data['goals']
+    score = match_data['score']
+    
+    is_home = teams['home']['id'] == team_id
+    opponent = teams['away']['name'] if is_home else teams['home']['name']
+    
+    team_goals = goals['home'] if is_home else goals['away']
+    opponent_goals = goals['away'] if is_home else goals['home']
+    
+    # Handle None values for halftime scores
+    ht_home = score.get('halftime', {}).get('home') if score.get('halftime') else None
+    ht_away = score.get('halftime', {}).get('away') if score.get('halftime') else None
+    
+    # Default to 0 if halftime data is missing
+    ht_team = (ht_home if is_home else ht_away) or 0
+    ht_opponent = (ht_away if is_home else ht_home) or 0
+    
+    return {
+        'match_id': fixture['id'],
+        'date': fixture['date'],
+        'competition': match_data['league']['name'],
+        'is_home': is_home,
+        'opponent': opponent,
+        'team_goals': team_goals or 0,
+        'opponent_goals': opponent_goals or 0,
+        'total_goals': (team_goals or 0) + (opponent_goals or 0),
+        'ht_team_goals': ht_team,
+        'ht_opponent_goals': ht_opponent,
+        'ht_total': ht_team + ht_opponent,
+        'result': 'W' if (team_goals or 0) > (opponent_goals or 0) else ('D' if (team_goals or 0) == (opponent_goals or 0) else 'L'),
+        'clean_sheet': (opponent_goals or 0) == 0,
+        'btts': (team_goals or 0) > 0 and (opponent_goals or 0) > 0,
+        'over_2_5': ((team_goals or 0) + (opponent_goals or 0)) > 2.5,
+        'over_1_5_ht': (ht_team + ht_opponent) > 1.5
+    }
+
         
     def _parse_fixture(self, fixture_data: Dict, team_id: int) -> Dict:
         """Parse upcoming fixture"""
