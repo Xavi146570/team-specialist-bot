@@ -8,7 +8,7 @@ Monitors live HT triggers after 30 minutes
 import os
 import logging
 from datetime import datetime, timedelta
-from apscheduler.scheduler import Scheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 from modules.data_collector import DataCollector
 from modules.minimum_analyzer import MinimumAnalyzer
@@ -208,33 +208,39 @@ class TeamSpecialistBot:
 
 def main():
     bot = TeamSpecialistBot()
-    scheduler = Scheduler()
+    scheduler = BlockingScheduler()
     
     # Full analysis: Every Sunday at 02:00 (weekly update)
-    scheduler.add_cron_job(
+    scheduler.add_job(
         bot.run_full_analysis,
+        'cron',
         day_of_week='sun',
         hour=2,
         minute=0
     )
     
     # Check upcoming matches: Every day at 10:00 and 18:00
-    scheduler.add_cron_job(
+    scheduler.add_job(
         bot.check_upcoming_matches,
+        'cron',
         hour='10,18',
         minute=0
     )
     
-    # Monitor live matches: Every 5 minutes during match hours
-    scheduler.add_interval_job(
+    # Monitor live matches: Every 5 minutes
+    scheduler.add_job(
         bot.monitor_live_matches,
+        'interval',
         minutes=5
     )
     
     # Run initial analysis on startup
     logger.info("Running initial analysis...")
-    bot.run_full_analysis()
-    bot.check_upcoming_matches()
+    try:
+        bot.run_full_analysis()
+        bot.check_upcoming_matches()
+    except Exception as e:
+        logger.error(f"Error in initial run: {e}")
     
     # Start scheduler
     logger.info("Bot started! Monitoring 3 teams...")
