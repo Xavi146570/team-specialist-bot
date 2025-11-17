@@ -11,7 +11,7 @@ from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 import os
 
 logger = logging.getLogger(__name__)
