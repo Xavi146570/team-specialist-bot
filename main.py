@@ -233,8 +233,6 @@ def main():
         'interval',
         minutes=5
     )
-
-logger.info("✅ Job agendado: Cleanup apostas órfãs (diário 03:00 UTC)")
     
     # Run initial analysis on startup
     logger.info("Running initial analysis...")
