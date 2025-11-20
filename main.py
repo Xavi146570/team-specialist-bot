@@ -18,7 +18,6 @@ from modules.live_monitor import LiveMonitor
 from modules.pdf_generator import PDFGenerator
 from modules.telegram_notifier import TelegramNotifier
 from modules.supabase_client import SupabaseClient
-from modules.cleanup_orphan_bets import cleanup_orphan_pending_bets
 
 # Configure logging
 logging.basicConfig(
@@ -234,16 +233,6 @@ def main():
         'interval',
         minutes=5
     )
-    # Cleanup apostas órfãs (diário às 03:00 UTC)
-scheduler.add_job(
-    cleanup_orphan_pending_bets,
-    'cron',
-    hour=3,
-    minute=0,
-    id='cleanup_orphan_bets',
-    name='Cleanup Apostas Órfãs Diário',
-    replace_existing=True
-)
 
 logger.info("✅ Job agendado: Cleanup apostas órfãs (diário 03:00 UTC)")
     
