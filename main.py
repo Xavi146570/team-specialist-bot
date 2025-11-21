@@ -153,16 +153,16 @@ class TeamSpecialistBot:
                             
                             # Create trading plan
                             plan = {
-                                'team_name': team_name,
-                                'match_id': match_id,
-                                'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
-                                'match_date': full_match['fixture']['date'],
-                                'league': full_match['league']['name'],
-                                'triggers': active_triggers,
-                                'confidence': confidence,
-                                'analysis': analysis,
-                                'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
-                            }
+    'team_name': team_name,
+    'match_id': match_id,
+    'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
+    'match_date': full_match['fixture']['date'],
+    'league': full_match['league']['name'],
+    'triggers': active_triggers,
+    'confidence': confidence,
+    'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
+}
+
                             
                             # Save to database
                             self.db.save_trading_plan(plan)
@@ -221,7 +221,10 @@ class TeamSpecialistBot:
             'match_id': str(plan['match_id'])
         }
         
-        self.db.create_opportunity(opportunity)
+        # Insert directly into opportunities table
+result = self.db.client.table('opportunities').insert(opportunity).execute()
+logger.info(f"✅ Opportunity created: {opportunity['match_info']}")
+
     
     def _get_recommended_markets(self, analysis: Dict, triggers: List[str]) -> List[str]:
         """Get recommended markets based on analysis"""
