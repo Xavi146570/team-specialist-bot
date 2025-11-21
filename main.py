@@ -142,7 +142,7 @@ class TeamSpecialistBot:
                         logger.info(f"📊 Triggers detected: {len(active_triggers)}")
                         
                         # Create opportunity if enough triggers
-                        if len(active_triggers) >= 3:
+                        if len(active_triggers) >= 1:
                             logger.info("✅ Creating trading plan...")
                             
                             # Calculate confidence
