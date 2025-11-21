@@ -90,98 +90,100 @@ class TeamSpecialistBot:
         logger.info("✅ Weekly analysis complete!")
     
     def check_upcoming_matches(self):
-        """Check for upcoming matches and create opportunities"""
-        logger.info("Checking upcoming matches...")
-        
-        for team_name, team_id in self.TEAMS.items():
-            try:
-                # Get matches for next 7 days
-from datetime import datetime, timedelta
-today = datetime.now().date()
-end_date = today + timedelta(days=7)
-
-matches = self.data_collector.get_team_matches(
-    team_id=team_id,
-    season=2024,
-    from_date=today.strftime('%Y-%m-%d'),
-    to_date=end_date.strftime('%Y-%m-%d'),
-    status='NS'  # Not Started
-)
-                
-                if not matches:
-                    logger.info(f"⏭️ No upcoming matches for {team_name}")
-                    continue
-                
-                logger.info(f"✅ Found {len(matches)} upcoming matches for {team_name}")
-                
-                # Analyze each match
-                for match in matches:
-                    try:
-                        home_name = match['teams']['home']['name']
-                        away_name = match['teams']['away']['name']
-                        match_id = match['fixture']['id']
+    """Check for upcoming matches and create opportunities"""
+    logger.info("Checking upcoming matches...")
+    
+    # Date range for upcoming matches
+    from datetime import datetime, timedelta
+    today = datetime.now().date()
+    end_date = today + timedelta(days=7)
+    
+    for team_name, team_id in self.TEAMS.items():
+        try:
+            # Get upcoming matches (next 7 days)
+            matches = self.data_collector.get_team_matches(
+                team_id=team_id,
+                season=2024,
+                from_date=today.strftime('%Y-%m-%d'),
+                to_date=end_date.strftime('%Y-%m-%d'),
+                status='NS'  # Not Started only
+            )
+            
+            if not matches:
+                logger.info(f"⏭️ No upcoming matches for {team_name}")
+                continue
+            
+            logger.info(f"✅ Found {len(matches)} upcoming matches for {team_name}")
+            
+            # Analyze each match
+            for match in matches:
+                try:
+                    home_name = match['teams']['home']['name']
+                    away_name = match['teams']['away']['name']
+                    match_id = match['fixture']['id']
+                    
+                    logger.info(f"🎯 Analyzing: {home_name} vs {away_name}")
+                    
+                    # Get analysis
+                    analysis = self.db.get_latest_analysis(team_name)
+                    
+                    if not analysis:
+                        logger.warning(f"⚠️ No analysis found for {team_name}")
+                        continue
+                    
+                    # Check triggers - PASS COMPLETE MATCH OBJECT
+                    active_triggers = self.trigger_detector.check_match_triggers(
+                        match,  # Complete match object from API
+                        analysis
+                    )
+                    
+                    logger.info(f"📊 Triggers detected: {len(active_triggers)}")
+                    
+                    # Create opportunity if enough triggers
+                    if len(active_triggers) >= 3:
+                        logger.info("✅ Creating trading plan...")
                         
-                        logger.info(f"🎯 Analyzing: {home_name} vs {away_name}")
-                        
-                        # Get analysis
-                        analysis = self.db.get_latest_analysis(team_name)
-                        
-                        if not analysis:
-                            logger.warning(f"⚠️ No analysis found for {team_name}")
-                            continue
-                        
-                        # Check triggers - PASS COMPLETE MATCH OBJECT
-                        active_triggers = self.trigger_detector.check_match_triggers(
-                            match,  # Complete match object from API
+                        # Calculate confidence
+                        confidence = self.trigger_detector.calculate_trigger_score(
+                            active_triggers,
                             analysis
                         )
                         
-                        logger.info(f"📊 Triggers detected: {len(active_triggers)}")
+                        # Create trading plan
+                        plan = {
+                            'team_name': team_name,
+                            'match_id': match_id,
+                            'opponent': away_name if match['teams']['home']['id'] == team_id else home_name,
+                            'match_date': match['fixture']['date'],
+                            'league': match['league']['name'],
+                            'triggers': active_triggers,
+                            'confidence': confidence,
+                            'analysis': analysis,
+                            'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
+                        }
                         
-                        # Create opportunity if enough triggers
-                        if len(active_triggers) >= 3:
-                            logger.info("✅ Creating trading plan...")
-                            
-                            # Calculate confidence
-                            confidence = self.trigger_detector.calculate_trigger_score(
-                                active_triggers,
-                                analysis
-                            )
-                            
-                            # Create trading plan
-                            plan = {
-                                'team_name': team_name,
-                                'match_id': match_id,
-                                'opponent': away_name if match['teams']['home']['id'] == team_id else home_name,
-                                'match_date': match['fixture']['date'],
-                                'league': match['league']['name'],
-                                'triggers': active_triggers,
-                                'confidence': confidence,
-                                'analysis': analysis,
-                                'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
-                            }
-                            
-                            # Save to database
-                            self.db.save_trading_plan(plan)
-                            
-                            # Create opportunity for frontend
-                            self._create_opportunity(plan)
-                            
-                            logger.info(f"🎯 Opportunity created for {home_name} vs {away_name}")
-                        else:
-                            logger.info(f"⏭️ Skipping - insufficient triggers ({len(active_triggers)}/3)")
-                    
-                    except Exception as e:
-                        logger.error(f"❌ Error analyzing match: {e}")
-                        import traceback
-                        logger.error(traceback.format_exc())
-                        continue
-            
-            except Exception as e:
-                logger.error(f"❌ Error checking {team_name} fixtures: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-                continue
+                        # Save to database
+                        self.db.save_trading_plan(plan)
+                        
+                        # Create opportunity for frontend
+                        self._create_opportunity(plan)
+                        
+                        logger.info(f"🎯 Opportunity created for {home_name} vs {away_name}")
+                    else:
+                        logger.info(f"⏭️ Skipping - insufficient triggers ({len(active_triggers)}/3)")
+                
+                except Exception as e:
+                    logger.error(f"❌ Error analyzing match: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    continue
+        
+        except Exception as e:
+            logger.error(f"❌ Error checking {team_name} fixtures: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            continue
+
     
     def _create_opportunity(self, plan: Dict):
         """Create opportunity record for frontend"""
