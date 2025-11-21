@@ -135,21 +135,22 @@ class TeamSpecialistBot:
                         triggers=active_triggers
                     )
                     
-                    # Save trading plan
                     plan_data = {
-                        'team_name': team_name,
-                        'match_date': match['date'],
-                        'opponent': match['opponent'],
-                        'competition': match['competition'],
-                        'is_home': match['is_home'],
-                        'active_triggers': active_triggers,
-                        'trading_plan': trading_plan,
-                        'kelly_stake_recommendation': trading_plan['recommended_stake'],
-                        'min_70_scenarios': trading_plan['scenarios']['min_70'],
-                        'min_80_scenarios': trading_plan['scenarios']['min_80'],
-                        'min_90_scenarios': trading_plan['scenarios']['min_90'],
-                        'created_at': datetime.now().isoformat()
-                    }
+    'team_name': team_name,
+    'match_datetime': match['date'],  # ← usar match_datetime (não match_date)
+    'opponent_team': match['opponent'],  # ← usar opponent_team
+    'competition': match['competition'],
+    'is_home': match['is_home'],
+    'active_triggers': active_triggers,
+    'trading_plan': trading_plan,
+    'kelly_stake_recommendation': trading_plan['recommended_stake'],
+    'min_70_scenarios': trading_plan['scenarios']['min_70'],
+    'min_80_scenarios': trading_plan['scenarios']['min_80'],
+    'min_90_scenarios': trading_plan['scenarios']['min_90'],
+    'match_id': str(match.get('id', '')),  # ← adicionar match_id
+    'status': 'pending',  # ← adicionar status
+    'created_at': datetime.now().isoformat()
+}
                     
                     self.supabase.save_trading_plan(plan_data)
                     
