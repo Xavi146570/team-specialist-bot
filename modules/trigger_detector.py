@@ -249,7 +249,7 @@ class TriggerDetector:
         logger.info(f"🔍 Checking triggers for: {match['teams']['home']['name']} vs {match['teams']['away']['name']}")
         logger.info(f"📍 Team {team_id} is {'HOME' if is_home else 'AWAY'} vs opponent {opponent_id}")
         
-        # TRIGGER 1-2: vs_bottom5_home / vs_top3_home
+                # TRIGGER 1-2: vs_bottom5_home / vs_top3_home
         # Heuristic: If opponent is NOT in Big 3 and league is Taça → assume "bottom 5"
         if is_home:
             if opponent_id not in self.BIG3_IDS:
@@ -265,19 +265,19 @@ class TriggerDetector:
         if is_home:
             try:
                 # Get recent match from history
-recent_matches = self.data_collector.get_team_history(
-    team_id=team_id,
-    years=1
-)
-if recent_matches:
-    recent_matches = [recent_matches[0]]  # Get only the most recent
-
+                recent_matches = self.data_collector.get_team_history(
+                    team_id=team_id,
+                    years=1
+                )
+                if recent_matches:
+                    recent_matches = [recent_matches[0]]  # Get only the most recent
+                
                 if recent_matches and self._is_loss(recent_matches[0], team_id):
                     active.append('post_loss_home')
                     logger.info("✅ Trigger: post_loss_home (coming from defeat)")
             except Exception as e:
                 logger.warning(f"⚠️ Could not check post_loss: {e}")
-        
+
         # TRIGGER 4: classico
         if opponent_id in self.BIG3_IDS:
             active.append('classico')
