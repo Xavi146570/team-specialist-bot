@@ -101,84 +101,92 @@ class TeamSpecialistBot:
         logger.info("Full analysis complete!")
         
     def check_upcoming_matches(self):
-        """Check upcoming matches and create trading plans"""
-        logger.info("Checking upcoming matches...")
-        
-        for team_name, team_id in TEAMS.items():
-            try:
-                # Get next 7 days fixtures
-                upcoming = self.data_collector.get_upcoming_fixtures(
-                    team_id=team_id,
-                    days=7
-                )
-                
-                logger.info(f"✅ Found {len(upcoming)} upcoming matches for {team_name}")
-                
-                for match in upcoming:
-                    logger.info(f"🎯 Analyzing: {team_name} vs {match.get('opponent', 'TBD')}")
+    """Check for upcoming matches and create opportunities"""
+    logger.info("Checking upcoming matches...")
+    
+    for team_name, team_id in self.TEAMS.items():
+        try:
+            # Get upcoming matches (next 7 days)
+            matches = self.data_collector.get_team_fixtures(
+                team_id=team_id,
+                season=2024
+            )
+            
+            if not matches:
+                logger.info(f"⏭️ No upcoming matches for {team_name}")
+                continue
+            
+            logger.info(f"✅ Found {len(matches)} upcoming matches for {team_name}")
+            
+            # Analyze each match
+            for match in matches:
+                try:
+                    home_name = match['teams']['home']['name']
+                    away_name = match['teams']['away']['name']
+                    match_id = match['fixture']['id']
                     
-                    # Get latest team analysis
-                    analysis = self.supabase.get_team_analysis(team_name)
+                    logger.info(f"🎯 Analyzing: {home_name} vs {away_name}")
+                    
+                    # Get analysis
+                    analysis = self.db.get_latest_analysis(team_name)
                     
                     if not analysis:
-                        logger.warning(f"No analysis found for {team_name}")
+                        logger.warning(f"⚠️ No analysis found for {team_name}")
                         continue
                     
-                    # Detect active triggers for this match
+                    # Check triggers - PASS COMPLETE MATCH OBJECT
                     active_triggers = self.trigger_detector.check_match_triggers(
-                        match, analysis
+                        match,  # ← Complete match object from API
+                        analysis
                     )
                     
                     logger.info(f"📊 Triggers detected: {len(active_triggers)}")
                     
-                    if not active_triggers or len(active_triggers) < 8:
-                        logger.info(f"⏭️ Skipping - insufficient triggers")
-                        continue
-                    
-                    # Calculate Kelly stakes
-                    trading_plan = self.kelly_calculator.create_trading_plan(
-                        match=match,
-                        analysis=analysis,
-                        triggers=active_triggers
-                    )
-                    
-                    # Save trading plan
-                    plan_data = {
-                        'team_name': team_name,
-                        'match_id': str(match.get('id', '')),
-                        'match_datetime': match.get('date'),
-                        'opponent_team': match.get('opponent', 'TBD'),
-                        'competition': match.get('competition', 'Unknown'),
-                        'is_home': match.get('is_home', True),
-                        'home_away': 'home' if match.get('is_home', True) else 'away',
-                        'active_triggers': active_triggers,
-                        'trading_plan': trading_plan,
-                        'kelly_stake_recommendation': str(trading_plan.get('recommended_stake', 'N/A')),
-                        'min_70_scenarios': trading_plan.get('scenarios', {}).get('min_70', {}),
-                        'min_80_scenarios': trading_plan.get('scenarios', {}).get('min_80', {}),
-                        'min_90_scenarios': trading_plan.get('scenarios', {}).get('min_90', {}),
-                        'status': 'pending',
-                        'created_at': datetime.now().isoformat()
-                    }
-                    
-                    self.supabase.save_trading_plan(plan_data)
-                    
-                    # Send alert
-                    self.telegram.send_match_alert(team_name, match, trading_plan)
-                    logger.info(f"✅ Trading plan created: {team_name} vs {match.get('opponent')}")
-                    
-            except Exception as e:
-                logger.error(f"❌ Error checking {team_name} fixtures: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
-
-
+                    # Create opportunity if enough triggers
+                    if len(active_triggers) >= 3:  # ← Your updated threshold
+                        logger.info("✅ Creating trading plan...")
+                        
+                        # Calculate confidence
+                        confidence = self.trigger_detector.calculate_trigger_score(
+                            active_triggers,
+                            analysis
+                        )
+                        
+                        # Create trading plan
+                        plan = {
+                            'team_name': team_name,
+                            'match_id': match_id,
+                            'opponent': away_name if match['teams']['home']['id'] == team_id else home_name,
+                            'match_date': match['fixture']['date'],
+                            'league': match['league']['name'],
+                            'triggers': active_triggers,
+                            'confidence': confidence,
+                            'analysis': analysis,
+                            'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
+                        }
+                        
+                        # Save to database
+                        self.db.save_trading_plan(plan)
+                        
+                        # Create opportunity for frontend
+                        self._create_opportunity(plan)
+                        
+                        logger.info(f"🎯 Opportunity created for {home_name} vs {away_name}")
+                    else:
+                        logger.info(f"⏭️ Skipping - insufficient triggers ({len(active_triggers)}/3)")
                 
-                logger.info(f"📊 Triggers detected: {len(active_triggers)}")
-                
-                if not active_triggers or len(active_triggers) < 3:
-                    logger.info(f"⏭️ Skipping - insufficient triggers")
+                except Exception as e:
+                    logger.error(f"❌ Error analyzing match: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
                     continue
+        
+        except Exception as e:
+            logger.error(f"❌ Error checking {team_name} fixtures: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            continue
+
                 
                 # Calculate Kelly stakes
                 trading_plan = self.kelly_calculator.create_trading_plan(
