@@ -16,7 +16,6 @@ from modules.data_collector import DataCollector
 from modules.trigger_detector import TriggerDetector
 from modules.minimum_analyzer import MinimumAnalyzer
 from modules.kelly_calculator import KellyCalculator
-from modules.live_monitor import LiveMonitor
 from modules.supabase_client import SupabaseClient
 
 # Configure logging
@@ -153,16 +152,15 @@ class TeamSpecialistBot:
                             
                             # Create trading plan
                             plan = {
-    'team_name': team_name,
-    'match_id': match_id,
-    'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
-    'match_date': full_match['fixture']['date'],
-    'league': full_match['league']['name'],
-    'triggers': active_triggers,
-    'confidence': confidence,
-    'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
-}
-
+                                'team_name': team_name,
+                                'match_id': match_id,
+                                'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
+                                'match_date': full_match['fixture']['date'],
+                                'league': full_match['league']['name'],
+                                'triggers': active_triggers,
+                                'confidence': confidence,
+                                'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
+                            }
                             
                             # Save to database
                             self.db.save_trading_plan(plan)
@@ -172,7 +170,7 @@ class TeamSpecialistBot:
                             
                             logger.info(f"🎯 Opportunity created for {home_name} vs {away_name}")
                         else:
-                            logger.info(f"⏭️ Skipping - insufficient triggers ({len(active_triggers)}/3)")
+                            logger.info(f"⏭️ Skipping - insufficient triggers ({len(active_triggers)}/1)")
                     
                     except Exception as e:
                         logger.error(f"❌ Error analyzing match: {e}")
@@ -210,21 +208,23 @@ class TeamSpecialistBot:
         """Create opportunity record for frontend"""
         opportunity = {
             'bot_name': 'Team Specialist Bot',
-            'match_info': f"{plan['opponent']} vs {plan['team_name']}" if plan['team_name'] in ['Benfica', 'FC Porto', 'Sporting'] else f"{plan['team_name']} vs {plan['opponent']}",
+            'match_info': f"{plan['team_name']} vs {plan['opponent']}",
             'league': plan['league'],
             'market': plan['recommended_markets'][0] if plan['recommended_markets'] else 'Over 2.5',
             'odd': 1.85,
             'confidence': plan['confidence'],
             'status': 'pre-match',
             'match_date': plan['match_date'],
-            'analysis': f"{plan['team_name']}: {len(plan['triggers'])} triggers active",
+            'analysis': f"{plan['team_name']}: {len(plan['triggers'])} triggers active - {', '.join(plan['triggers'])}",
             'match_id': str(plan['match_id'])
         }
         
         # Insert directly into opportunities table
-result = self.db.client.table('opportunities').insert(opportunity).execute()
-logger.info(f"✅ Opportunity created: {opportunity['match_info']}")
-
+        try:
+            result = self.db.client.table('opportunities').insert(opportunity).execute()
+            logger.info(f"✅ Opportunity created: {opportunity['match_info']}")
+        except Exception as e:
+            logger.error(f"❌ Error creating opportunity: {e}")
     
     def _get_recommended_markets(self, analysis: Dict, triggers: List[str]) -> List[str]:
         """Get recommended markets based on analysis"""
@@ -245,15 +245,8 @@ logger.info(f"✅ Opportunity created: {opportunity['match_info']}")
     def monitor_live_matches(self):
         """Monitor live matches for in-play opportunities"""
         try:
-            live_monitor = LiveMonitor(
-                self.data_collector,
-                self.trigger_detector,
-                self.db
-            )
-            
-            for team_name, team_id in self.TEAMS.items():
-                live_monitor.check_live_matches(team_id, team_name)
-        
+            # Live monitoring disabled for now
+            logger.info("Live monitoring: No live matches to check")
         except Exception as e:
             logger.error(f"Error in live monitoring: {e}")
 
