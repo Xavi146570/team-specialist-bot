@@ -16,7 +16,7 @@ from modules.trigger_detector import TriggerDetector
 from modules.minimum_analyzer import MinimumAnalyzer
 from modules.kelly_calculator import KellyCalculator
 from modules.live_monitor import LiveMonitor
-from modules.database import SupabaseClient
+from modules.supabase_client import SupabaseClient
 
 # Configure logging
 logging.basicConfig(
