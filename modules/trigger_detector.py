@@ -264,11 +264,14 @@ class TriggerDetector:
         # Check last match result
         if is_home:
             try:
-                recent_matches = self.data_collector.get_team_matches(
-                    team_id=team_id,
-                    season=2024,
-                    last=1
-                )
+                # Get recent match from history
+recent_matches = self.data_collector.get_team_history(
+    team_id=team_id,
+    years=1
+)
+if recent_matches:
+    recent_matches = [recent_matches[0]]  # Get only the most recent
+
                 if recent_matches and self._is_loss(recent_matches[0], team_id):
                     active.append('post_loss_home')
                     logger.info("✅ Trigger: post_loss_home (coming from defeat)")
