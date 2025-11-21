@@ -54,32 +54,58 @@ class DataCollector:
         logger.info(f"Total matches collected: {len(all_matches)}")
         return all_matches
         
-    def get_upcoming_fixtures(self, team_id: int, days: int = 7) -> List[Dict]:
+        def get_upcoming_fixtures(self, team_id: int, days: int = 7) -> List[Dict]:
         """Get upcoming fixtures in next N days"""
         try:
             today = datetime.now()
             end_date = today + timedelta(days=days)
             
+            logger.info(f"🔍 Buscando jogos de {today.strftime('%Y-%m-%d')} até {end_date.strftime('%Y-%m-%d')} para team_id={team_id}")
+            logger.info(f"🔑 API Key presente: {'Sim' if self.api_key else 'NÃO!'}")
+            logger.info(f"🔑 API Key (primeiros 10 chars): {self.api_key[:10] if self.api_key else 'VAZIA'}")
+            
+            params = {
+                'team': team_id,
+                'from': today.strftime('%Y-%m-%d'),
+                'to': end_date.strftime('%Y-%m-%d'),
+                'status': 'NS'  # Not started
+            }
+            
+            logger.info(f"📋 Parâmetros da requisição: {params}")
+            
             response = requests.get(
                 f'{self.base_url}/fixtures',
                 headers=self.headers,
-                params={
-                    'team': team_id,
-                    'from': today.strftime('%Y-%m-%d'),
-                    'to': end_date.strftime('%Y-%m-%d'),
-                    'status': 'NS'  # Not started
-                }
+                params=params,
+                timeout=10
             )
+            
+            logger.info(f"📡 Status da API: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
+                
+                # Log da resposta completa (primeiros 1000 chars)
+                logger.info(f"📊 Response JSON (preview): {str(data)[:1000]}")
+                
                 fixtures = data.get('response', [])
+                logger.info(f"✅ API retornou {len(fixtures)} jogos")
+                
+                if fixtures:
+                    logger.info(f"🎯 Primeiro jogo: {fixtures[0]}")
+                
                 return [self._parse_fixture(f, team_id) for f in fixtures]
+            else:
+                logger.error(f"❌ Erro da API: Status {response.status_code}")
+                logger.error(f"❌ Response: {response.text[:500]}")
                 
         except Exception as e:
-            logger.error(f"Error fetching upcoming fixtures: {e}")
+            logger.error(f"❌ Exceção ao buscar fixtures: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             
         return []
+
         
     def get_live_matches(self, team_id: int) -> List[Dict]:
         """Get currently live matches for team"""
