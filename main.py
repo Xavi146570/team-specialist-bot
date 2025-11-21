@@ -246,5 +246,47 @@ def main():
     logger.info("Bot started! Monitoring 3 teams...")
     scheduler.start()
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    bot = TeamSpecialistBot()
+    scheduler = BlockingScheduler()
+    
+    # Weekly full analysis (every Wednesday 10:00)
+    scheduler.add_job(
+        bot.run_full_analysis,
+        'cron',
+        day_of_week='wed',
+        hour=10,
+        minute=0,
+        id='weekly_analysis'
+    )
+    
+    # ADICIONAR ISTO! ⬇️⬇️⬇️
+    # Daily check for upcoming matches (every day 7:00)
+    scheduler.add_job(
+        bot.check_upcoming_matches,
+        'cron',
+        hour=7,
+        minute=0,
+        id='daily_check_matches'
+    )
+    
+    # Live match monitoring (every 2 minutes)
+    scheduler.add_job(
+        bot.monitor_live_matches,
+        'interval',
+        minutes=2,
+        id='live_monitor'
+    )
+    
+    logger.info("🚀 Team Specialist Bot started!")
+    logger.info("📅 Scheduled jobs:")
+    logger.info("  - Weekly analysis: Wednesday 10:00")
+    logger.info("  - Daily match check: Every day 7:00")  # ← NOVO
+    logger.info("  - Live monitoring: Every 2 minutes")
+    
+    # Executar check inicial ao iniciar
+    logger.info("🧪 Running initial check...")
+    bot.check_upcoming_matches()  # ← ADICIONAR ISTO!
+    
+    scheduler.start()
+
