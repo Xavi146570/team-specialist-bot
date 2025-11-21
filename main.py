@@ -95,11 +95,18 @@ class TeamSpecialistBot:
         
         for team_name, team_id in self.TEAMS.items():
             try:
-                # Get upcoming matches (next 7 days)
-                matches = self.data_collector.get_team_fixtures(
-                    team_id=team_id,
-                    season=2024
-                )
+                # Get matches for next 7 days
+from datetime import datetime, timedelta
+today = datetime.now().date()
+end_date = today + timedelta(days=7)
+
+matches = self.data_collector.get_team_matches(
+    team_id=team_id,
+    season=2024,
+    from_date=today.strftime('%Y-%m-%d'),
+    to_date=end_date.strftime('%Y-%m-%d'),
+    status='NS'  # Not Started
+)
                 
                 if not matches:
                     logger.info(f"⏭️ No upcoming matches for {team_name}")
