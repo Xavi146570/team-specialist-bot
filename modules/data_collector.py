@@ -54,7 +54,7 @@ class DataCollector:
         logger.info(f"Total matches collected: {len(all_matches)}")
         return all_matches
         
-        def get_upcoming_fixtures(self, team_id: int, days: int = 7) -> List[Dict]:
+    def get_upcoming_fixtures(self, team_id: int, days: int = 7) -> List[Dict]:
         """Get upcoming fixtures in next N days"""
         try:
             today = datetime.now()
@@ -105,7 +105,6 @@ class DataCollector:
             logger.error(traceback.format_exc())
             
         return []
-
         
     def get_live_matches(self, team_id: int) -> List[Dict]:
         """Get currently live matches for team"""
@@ -178,7 +177,7 @@ class DataCollector:
         opponent = teams['away']['name'] if is_home else teams['home']['name']
         
         return {
-            'match_id': fixture['id'],
+            'id': fixture['id'],
             'date': fixture['date'],
             'competition': fixture_data['league']['name'],
             'is_home': is_home,
