@@ -37,7 +37,7 @@ class TeamSpecialistBot:
     def __init__(self):
         self.data_collector = DataCollector()
         self.minimum_analyzer = MinimumAnalyzer()
-        self.trigger_detector = TriggerDetector()
+        self.trigger_detector = TriggerDetector(self.data_collector)
         self.kelly_calculator = KellyCalculator()
         self.live_monitor = LiveMonitor()
         self.pdf_generator = PDFGenerator()
