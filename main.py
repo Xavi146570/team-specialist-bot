@@ -5,6 +5,7 @@ Analyzes Benfica, FC Porto, and Sporting matches using historical patterns
 
 import os
 import logging
+import requests
 from datetime import datetime, timedelta
 from typing import Dict, List
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -52,10 +53,9 @@ class TeamSpecialistBot:
                 logger.info(f"Analyzing {team_name}...")
                 
                 # Get 5 years of historical data
-                matches = self.data_collector.get_team_matches(
+                matches = self.data_collector.get_team_history(
                     team_id=team_id,
-                    season=2024,
-                    last=200
+                    years=5
                 )
                 
                 if not matches:
@@ -93,19 +93,12 @@ class TeamSpecialistBot:
         """Check for upcoming matches and create opportunities"""
         logger.info("Checking upcoming matches...")
         
-        # Date range for upcoming matches
-        today = datetime.now().date()
-        end_date = today + timedelta(days=7)
-        
         for team_name, team_id in self.TEAMS.items():
             try:
                 # Get upcoming matches (next 7 days)
-                matches = self.data_collector.get_team_matches(
+                matches = self.data_collector.get_upcoming_fixtures(
                     team_id=team_id,
-                    season=2024,
-                    from_date=today.strftime('%Y-%m-%d'),
-                    to_date=end_date.strftime('%Y-%m-%d'),
-                    status='NS'
+                    days=7
                 )
                 
                 if not matches:
@@ -117,9 +110,19 @@ class TeamSpecialistBot:
                 # Analyze each match
                 for match in matches:
                     try:
-                        home_name = match['teams']['home']['name']
-                        away_name = match['teams']['away']['name']
-                        match_id = match['fixture']['id']
+                        # NOTE: get_upcoming_fixtures returns simplified structure
+                        # Need to fetch full match details from API
+                        match_id = match['id']
+                        
+                        # Get full match details
+                        full_match = self._get_match_details(match_id)
+                        
+                        if not full_match:
+                            logger.warning(f"⚠️ Could not fetch details for match {match_id}")
+                            continue
+                        
+                        home_name = full_match['teams']['home']['name']
+                        away_name = full_match['teams']['away']['name']
                         
                         logger.info(f"🎯 Analyzing: {home_name} vs {away_name}")
                         
@@ -132,7 +135,7 @@ class TeamSpecialistBot:
                         
                         # Check triggers
                         active_triggers = self.trigger_detector.check_match_triggers(
-                            match,
+                            full_match,
                             analysis
                         )
                         
@@ -152,9 +155,9 @@ class TeamSpecialistBot:
                             plan = {
                                 'team_name': team_name,
                                 'match_id': match_id,
-                                'opponent': away_name if match['teams']['home']['id'] == team_id else home_name,
-                                'match_date': match['fixture']['date'],
-                                'league': match['league']['name'],
+                                'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
+                                'match_date': full_match['fixture']['date'],
+                                'league': full_match['league']['name'],
                                 'triggers': active_triggers,
                                 'confidence': confidence,
                                 'analysis': analysis,
@@ -182,6 +185,26 @@ class TeamSpecialistBot:
                 import traceback
                 logger.error(traceback.format_exc())
                 continue
+    
+    def _get_match_details(self, match_id: int) -> Dict:
+        """Fetch full match details from API"""
+        try:
+            response = requests.get(
+                f'{self.data_collector.base_url}/fixtures',
+                headers=self.data_collector.headers,
+                params={'id': match_id},
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                fixtures = data.get('response', [])
+                if fixtures:
+                    return fixtures[0]
+        except Exception as e:
+            logger.error(f"Error fetching match {match_id}: {e}")
+        
+        return None
     
     def _create_opportunity(self, plan: Dict):
         """Create opportunity record for frontend"""
