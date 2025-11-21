@@ -208,14 +208,14 @@ class TeamSpecialistBot:
                 
                 self.supabase.save_trading_plan(plan_data)
                 
-                # Send alert
+                                # Send alert
                 self.telegram.send_match_alert(team_name, match, trading_plan)
                 logger.info(f"✅ Trading plan created: {team_name} vs {match.get('opponent')}")
                 
-        except Exception as e:
-            logger.error(f"❌ Error checking {team_name} fixtures: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
+            except Exception as e:
+                logger.error(f"❌ Error checking {team_name} fixtures: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
                 
     def monitor_live_matches(self):
         """Monitor live matches for HT triggers (30-45min)"""
