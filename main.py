@@ -92,12 +92,13 @@ class TeamSpecialistBot:
             except Exception as e:
                 logger.error(f"Error analyzing {team_name}: {e}")
                 
-        # Generate consolidated PDF
+                # Generate consolidated PDF
         logger.info("Generating PDF report...")
         pdf_path = self.pdf_generator.create_full_report(TEAMS.keys())
         
         # Send to Telegram
-                logger.info("Full analysis complete!")
+        self.telegram.send_report(pdf_path)
+        logger.info("Full analysis complete!")
         
     def check_upcoming_matches(self):
         """Check upcoming matches and create trading plans"""
@@ -170,6 +171,7 @@ class TeamSpecialistBot:
                 logger.error(f"❌ Error checking {team_name} fixtures: {e}")
                 import traceback
                 logger.error(traceback.format_exc())
+
 
                 
                 logger.info(f"📊 Triggers detected: {len(active_triggers)}")
