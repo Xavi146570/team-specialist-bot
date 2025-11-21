@@ -54,8 +54,8 @@ class TeamSpecialistBot:
                 # Get 5 years of historical data
                 matches = self.data_collector.get_team_matches(
                     team_id=team_id,
-                    season=2024,  # Will get multiple seasons
-                    last=200  # ~5 years worth
+                    season=2024,
+                    last=200
                 )
                 
                 if not matches:
@@ -90,100 +90,98 @@ class TeamSpecialistBot:
         logger.info("✅ Weekly analysis complete!")
     
     def check_upcoming_matches(self):
-    """Check for upcoming matches and create opportunities"""
-    logger.info("Checking upcoming matches...")
-    
-    # Date range for upcoming matches
-    from datetime import datetime, timedelta
-    today = datetime.now().date()
-    end_date = today + timedelta(days=7)
-    
-    for team_name, team_id in self.TEAMS.items():
-        try:
-            # Get upcoming matches (next 7 days)
-            matches = self.data_collector.get_team_matches(
-                team_id=team_id,
-                season=2024,
-                from_date=today.strftime('%Y-%m-%d'),
-                to_date=end_date.strftime('%Y-%m-%d'),
-                status='NS'  # Not Started only
-            )
-            
-            if not matches:
-                logger.info(f"⏭️ No upcoming matches for {team_name}")
-                continue
-            
-            logger.info(f"✅ Found {len(matches)} upcoming matches for {team_name}")
-            
-            # Analyze each match
-            for match in matches:
-                try:
-                    home_name = match['teams']['home']['name']
-                    away_name = match['teams']['away']['name']
-                    match_id = match['fixture']['id']
-                    
-                    logger.info(f"🎯 Analyzing: {home_name} vs {away_name}")
-                    
-                    # Get analysis
-                    analysis = self.db.get_latest_analysis(team_name)
-                    
-                    if not analysis:
-                        logger.warning(f"⚠️ No analysis found for {team_name}")
-                        continue
-                    
-                    # Check triggers - PASS COMPLETE MATCH OBJECT
-                    active_triggers = self.trigger_detector.check_match_triggers(
-                        match,  # Complete match object from API
-                        analysis
-                    )
-                    
-                    logger.info(f"📊 Triggers detected: {len(active_triggers)}")
-                    
-                    # Create opportunity if enough triggers
-                    if len(active_triggers) >= 3:
-                        logger.info("✅ Creating trading plan...")
+        """Check for upcoming matches and create opportunities"""
+        logger.info("Checking upcoming matches...")
+        
+        # Date range for upcoming matches
+        today = datetime.now().date()
+        end_date = today + timedelta(days=7)
+        
+        for team_name, team_id in self.TEAMS.items():
+            try:
+                # Get upcoming matches (next 7 days)
+                matches = self.data_collector.get_team_matches(
+                    team_id=team_id,
+                    season=2024,
+                    from_date=today.strftime('%Y-%m-%d'),
+                    to_date=end_date.strftime('%Y-%m-%d'),
+                    status='NS'
+                )
+                
+                if not matches:
+                    logger.info(f"⏭️ No upcoming matches for {team_name}")
+                    continue
+                
+                logger.info(f"✅ Found {len(matches)} upcoming matches for {team_name}")
+                
+                # Analyze each match
+                for match in matches:
+                    try:
+                        home_name = match['teams']['home']['name']
+                        away_name = match['teams']['away']['name']
+                        match_id = match['fixture']['id']
                         
-                        # Calculate confidence
-                        confidence = self.trigger_detector.calculate_trigger_score(
-                            active_triggers,
+                        logger.info(f"🎯 Analyzing: {home_name} vs {away_name}")
+                        
+                        # Get analysis
+                        analysis = self.db.get_latest_analysis(team_name)
+                        
+                        if not analysis:
+                            logger.warning(f"⚠️ No analysis found for {team_name}")
+                            continue
+                        
+                        # Check triggers
+                        active_triggers = self.trigger_detector.check_match_triggers(
+                            match,
                             analysis
                         )
                         
-                        # Create trading plan
-                        plan = {
-                            'team_name': team_name,
-                            'match_id': match_id,
-                            'opponent': away_name if match['teams']['home']['id'] == team_id else home_name,
-                            'match_date': match['fixture']['date'],
-                            'league': match['league']['name'],
-                            'triggers': active_triggers,
-                            'confidence': confidence,
-                            'analysis': analysis,
-                            'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
-                        }
+                        logger.info(f"📊 Triggers detected: {len(active_triggers)}")
                         
-                        # Save to database
-                        self.db.save_trading_plan(plan)
-                        
-                        # Create opportunity for frontend
-                        self._create_opportunity(plan)
-                        
-                        logger.info(f"🎯 Opportunity created for {home_name} vs {away_name}")
-                    else:
-                        logger.info(f"⏭️ Skipping - insufficient triggers ({len(active_triggers)}/3)")
-                
-                except Exception as e:
-                    logger.error(f"❌ Error analyzing match: {e}")
-                    import traceback
-                    logger.error(traceback.format_exc())
-                    continue
-        
-        except Exception as e:
-            logger.error(f"❌ Error checking {team_name} fixtures: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            continue
-
+                        # Create opportunity if enough triggers
+                        if len(active_triggers) >= 3:
+                            logger.info("✅ Creating trading plan...")
+                            
+                            # Calculate confidence
+                            confidence = self.trigger_detector.calculate_trigger_score(
+                                active_triggers,
+                                analysis
+                            )
+                            
+                            # Create trading plan
+                            plan = {
+                                'team_name': team_name,
+                                'match_id': match_id,
+                                'opponent': away_name if match['teams']['home']['id'] == team_id else home_name,
+                                'match_date': match['fixture']['date'],
+                                'league': match['league']['name'],
+                                'triggers': active_triggers,
+                                'confidence': confidence,
+                                'analysis': analysis,
+                                'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
+                            }
+                            
+                            # Save to database
+                            self.db.save_trading_plan(plan)
+                            
+                            # Create opportunity for frontend
+                            self._create_opportunity(plan)
+                            
+                            logger.info(f"🎯 Opportunity created for {home_name} vs {away_name}")
+                        else:
+                            logger.info(f"⏭️ Skipping - insufficient triggers ({len(active_triggers)}/3)")
+                    
+                    except Exception as e:
+                        logger.error(f"❌ Error analyzing match: {e}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                        continue
+            
+            except Exception as e:
+                logger.error(f"❌ Error checking {team_name} fixtures: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                continue
     
     def _create_opportunity(self, plan: Dict):
         """Create opportunity record for frontend"""
@@ -192,7 +190,7 @@ class TeamSpecialistBot:
             'match_info': f"{plan['opponent']} vs {plan['team_name']}" if plan['team_name'] in ['Benfica', 'FC Porto', 'Sporting'] else f"{plan['team_name']} vs {plan['opponent']}",
             'league': plan['league'],
             'market': plan['recommended_markets'][0] if plan['recommended_markets'] else 'Over 2.5',
-            'odd': 1.85,  # Placeholder - would need odds API
+            'odd': 1.85,
             'confidence': plan['confidence'],
             'status': 'pre-match',
             'match_date': plan['match_date'],
@@ -206,7 +204,6 @@ class TeamSpecialistBot:
         """Get recommended markets based on analysis"""
         markets = []
         
-        # Default markets based on triggers
         if 'vs_bottom5_home' in triggers or 'vs_bottom5_away' in triggers:
             markets.append('Over 2.5')
             markets.append('BTTS')
@@ -215,7 +212,7 @@ class TeamSpecialistBot:
             markets.append('Over 2.5 + BTTS')
         
         if 'champions_week' in triggers:
-            markets.append('Under 2.5')  # Rest players
+            markets.append('Under 2.5')
         
         return markets if markets else ['Over 2.5']
     
@@ -228,7 +225,6 @@ class TeamSpecialistBot:
                 self.db
             )
             
-            # Check all teams
             for team_name, team_id in self.TEAMS.items():
                 live_monitor.check_live_matches(team_id, team_name)
         
@@ -239,14 +235,10 @@ def main():
     """Main application entry point"""
     logger.info("🚀 Team Specialist Bot started!")
     
-    # Initialize bot
     bot = TeamSpecialistBot()
     
-    # Create scheduler
     scheduler = BlockingScheduler()
     
-    # Schedule jobs
-    # 1. Weekly analysis - Every Wednesday at 10:00 UTC
     scheduler.add_job(
         bot.run_weekly_analysis,
         CronTrigger(day_of_week='wed', hour=10, minute=0),
@@ -254,7 +246,6 @@ def main():
         name='Weekly Historical Analysis'
     )
     
-    # 2. Daily match check - Every day at 7:00 UTC
     scheduler.add_job(
         bot.check_upcoming_matches,
         CronTrigger(hour=7, minute=0),
@@ -262,7 +253,6 @@ def main():
         name='Daily Match Check'
     )
     
-    # 3. Live monitoring - Every 2 minutes
     scheduler.add_job(
         bot.monitor_live_matches,
         'interval',
@@ -276,11 +266,9 @@ def main():
     logger.info("  - Daily match check: Every day 7:00")
     logger.info("  - Live monitoring: Every 2 minutes")
     
-    # Run initial check
     logger.info("🧪 Running initial check...")
     bot.check_upcoming_matches()
     
-    # Start scheduler
     logger.info("⏰ Starting scheduler...")
     try:
         scheduler.start()
