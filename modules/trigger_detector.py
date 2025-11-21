@@ -286,10 +286,11 @@ class TriggerDetector:
             start_date = (match_date - timedelta(days=3)).strftime('%Y-%m-%d')
             end_date = (match_date + timedelta(days=3)).strftime('%Y-%m-%d')
             
-            nearby_matches = self.data_collector.get_team_fixtures(
-                team_id=team_id,
-                season=2024
-            )
+            nearby_matches = self.data_collector.get_team_matches(
+    team_id=team_id,
+    season=2024,
+    last=10  # Last 10 matches to check for nearby European games
+)
             
             for nearby in nearby_matches:
                 nearby_date = datetime.fromisoformat(nearby['fixture']['date'].replace('Z', '+00:00'))
