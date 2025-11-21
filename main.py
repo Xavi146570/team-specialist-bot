@@ -97,37 +97,80 @@ class TeamSpecialistBot:
         pdf_path = self.pdf_generator.create_full_report(TEAMS.keys())
         
         # Send to Telegram
-        self.telegram.send_report(pdf_path)
-        logger.info("Full analysis complete!")
+                logger.info("Full analysis complete!")
         
     def check_upcoming_matches(self):
-    """Check upcoming matches and create trading plans"""
-    logger.info("Checking upcoming matches...")
-    
-    for team_name, team_id in TEAMS.items():
-        try:
-            # Get next 7 days fixtures
-            upcoming = self.data_collector.get_upcoming_fixtures(
-                team_id=team_id,
-                days=7
-            )
-            
-            logger.info(f"✅ Found {len(upcoming)} upcoming matches for {team_name}")
-            
-            for match in upcoming:
-                logger.info(f"🎯 Analyzing: {team_name} vs {match.get('opponent', 'TBD')}")
-                
-                # Get latest team analysis
-                analysis = self.supabase.get_team_analysis(team_name)
-                
-                if not analysis:
-                    logger.warning(f"No analysis found for {team_name}")
-                    continue
-                
-                # Detect active triggers for this match
-                active_triggers = self.trigger_detector.check_match_triggers(
-                    match, analysis
+        """Check upcoming matches and create trading plans"""
+        logger.info("Checking upcoming matches...")
+        
+        for team_name, team_id in TEAMS.items():
+            try:
+                # Get next 7 days fixtures
+                upcoming = self.data_collector.get_upcoming_fixtures(
+                    team_id=team_id,
+                    days=7
                 )
+                
+                logger.info(f"✅ Found {len(upcoming)} upcoming matches for {team_name}")
+                
+                for match in upcoming:
+                    logger.info(f"🎯 Analyzing: {team_name} vs {match.get('opponent', 'TBD')}")
+                    
+                    # Get latest team analysis
+                    analysis = self.supabase.get_team_analysis(team_name)
+                    
+                    if not analysis:
+                        logger.warning(f"No analysis found for {team_name}")
+                        continue
+                    
+                    # Detect active triggers for this match
+                    active_triggers = self.trigger_detector.check_match_triggers(
+                        match, analysis
+                    )
+                    
+                    logger.info(f"📊 Triggers detected: {len(active_triggers)}")
+                    
+                    if not active_triggers or len(active_triggers) < 8:
+                        logger.info(f"⏭️ Skipping - insufficient triggers")
+                        continue
+                    
+                    # Calculate Kelly stakes
+                    trading_plan = self.kelly_calculator.create_trading_plan(
+                        match=match,
+                        analysis=analysis,
+                        triggers=active_triggers
+                    )
+                    
+                    # Save trading plan
+                    plan_data = {
+                        'team_name': team_name,
+                        'match_id': str(match.get('id', '')),
+                        'match_datetime': match.get('date'),
+                        'opponent_team': match.get('opponent', 'TBD'),
+                        'competition': match.get('competition', 'Unknown'),
+                        'is_home': match.get('is_home', True),
+                        'home_away': 'home' if match.get('is_home', True) else 'away',
+                        'active_triggers': active_triggers,
+                        'trading_plan': trading_plan,
+                        'kelly_stake_recommendation': str(trading_plan.get('recommended_stake', 'N/A')),
+                        'min_70_scenarios': trading_plan.get('scenarios', {}).get('min_70', {}),
+                        'min_80_scenarios': trading_plan.get('scenarios', {}).get('min_80', {}),
+                        'min_90_scenarios': trading_plan.get('scenarios', {}).get('min_90', {}),
+                        'status': 'pending',
+                        'created_at': datetime.now().isoformat()
+                    }
+                    
+                    self.supabase.save_trading_plan(plan_data)
+                    
+                    # Send alert
+                    self.telegram.send_match_alert(team_name, match, trading_plan)
+                    logger.info(f"✅ Trading plan created: {team_name} vs {match.get('opponent')}")
+                    
+            except Exception as e:
+                logger.error(f"❌ Error checking {team_name} fixtures: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+
                 
                 logger.info(f"📊 Triggers detected: {len(active_triggers)}")
                 
