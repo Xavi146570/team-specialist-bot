@@ -249,7 +249,7 @@ class TriggerDetector:
         logger.info(f"🔍 Checking triggers for: {match['teams']['home']['name']} vs {match['teams']['away']['name']}")
         logger.info(f"📍 Team {team_id} is {'HOME' if is_home else 'AWAY'} vs opponent {opponent_id}")
         
-                # TRIGGER 1-2: vs_bottom5_home / vs_top3_home
+        # TRIGGER 1-2: vs_bottom5_home / vs_top3_home
         # Heuristic: If opponent is NOT in Big 3 and league is Taça → assume "bottom 5"
         if is_home:
             if opponent_id not in self.BIG3_IDS:
@@ -260,63 +260,16 @@ class TriggerDetector:
                     active.append('vs_top3_home')
                     logger.info("✅ Trigger: vs_top3_home (European competition)")
         
-        # TRIGGER 3: post_loss_home
-        # Check last match result
-        if is_home:
-            try:
-                # Get recent match from history
-                recent_matches = self.data_collector.get_team_history(
-                    team_id=team_id,
-                    years=1
-                )
-                if recent_matches:
-                    recent_matches = [recent_matches[0]]  # Get only the most recent
-                
-                if recent_matches and self._is_loss(recent_matches[0], team_id):
-                    active.append('post_loss_home')
-                    logger.info("✅ Trigger: post_loss_home (coming from defeat)")
-            except Exception as e:
-                logger.warning(f"⚠️ Could not check post_loss: {e}")
-
+        # TRIGGER 3: post_loss_home (DISABLED - too slow)
+        # Would need to fetch match history
+        
         # TRIGGER 4: classico
         if opponent_id in self.BIG3_IDS:
             active.append('classico')
             logger.info("✅ Trigger: classico (Big 3 derby)")
         
-        # TRIGGER 5: champions_week
-        # Check if there's a Champions/Europa League match within 3 days
-        try:
-            start_date = (match_date - timedelta(days=3)).strftime('%Y-%m-%d')
-            end_date = (match_date + timedelta(days=3)).strftime('%Y-%m-%d')
-            
-            # Get upcoming fixtures to check for nearby European matches
-nearby_matches = self.data_collector.get_upcoming_fixtures(
-    team_id=team_id,
-    days=7
-)
-# Need to convert to full match details
-nearby_full = []
-for nm in nearby_matches[:5]:  # Check up to 5 upcoming matches
-    full = self._get_match_details_simple(nm['id'])
-    if full:
-        nearby_full.append(full)
-nearby_matches = nearby_full
-
-            
-            for nearby in nearby_matches:
-                nearby_date = datetime.fromisoformat(nearby['fixture']['date'].replace('Z', '+00:00'))
-                nearby_league = nearby['league']['id']
-                
-                # Check if it's a different match in Champions/Europa League
-                if nearby['fixture']['id'] != match['fixture']['id']:
-                    if nearby_league in [self.CHAMPIONS_LEAGUE_ID, self.EUROPA_LEAGUE_ID]:
-                        days_diff = abs((nearby_date - match_date).days)
-                        if days_diff <= 3:
-                            active.append('champions_week')
-                            logger.info(f"✅ Trigger: champions_week ({days_diff} days from European match)")
-                            break
-        except Exception as e:
-            logger.warning(f"⚠️ Could not check champions_week: {e}")
+        # TRIGGER 5: champions_week (DISABLED - too slow)
+        # Would need to fetch all upcoming fixtures
         
         # TRIGGER 6: vs_bottom5_away
         if not is_home:
