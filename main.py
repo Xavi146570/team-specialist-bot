@@ -127,7 +127,7 @@ class TeamSpecialistBot:
                         logger.info(f"🎯 Analyzing: {home_name} vs {away_name}")
                         
                         # Get analysis
-                        analysis = self.db.get_latest_analysis(team_name)
+                        analysis = self.db.get_team_analysis(team_name)
                         
                         if not analysis:
                             logger.warning(f"⚠️ No analysis found for {team_name}")
