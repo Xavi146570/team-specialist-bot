@@ -54,18 +54,20 @@ class DataCollector:
         logger.info(f"Total matches collected: {len(all_matches)}")
         return all_matches
         
-    def get_upcoming_fixtures(self, team_id: int, days: int = 7) -> List[Dict]:
+        def get_upcoming_fixtures(self, team_id: int, days: int = 7) -> List[Dict]:
         """Get upcoming fixtures in next N days"""
         try:
             today = datetime.now()
             end_date = today + timedelta(days=days)
+            current_season = today.year  # ← ADICIONAR ISTO
             
             logger.info(f"🔍 Buscando jogos de {today.strftime('%Y-%m-%d')} até {end_date.strftime('%Y-%m-%d')} para team_id={team_id}")
             logger.info(f"🔑 API Key presente: {'Sim' if self.api_key else 'NÃO!'}")
-            logger.info(f"🔑 API Key (primeiros 10 chars): {self.api_key[:10] if self.api_key else 'VAZIA'}")
+            logger.info(f"📅 Season (temporada): {current_season}")
             
             params = {
                 'team': team_id,
+                'season': current_season,  # ← ADICIONAR ISTO!
                 'from': today.strftime('%Y-%m-%d'),
                 'to': end_date.strftime('%Y-%m-%d'),
                 'status': 'NS'  # Not started
@@ -85,6 +87,10 @@ class DataCollector:
             if response.status_code == 200:
                 data = response.json()
                 
+                # Verificar se há erros
+                if data.get('errors'):
+                    logger.error(f"❌ API retornou erros: {data['errors']}")
+                
                 # Log da resposta completa (primeiros 1000 chars)
                 logger.info(f"📊 Response JSON (preview): {str(data)[:1000]}")
                 
@@ -93,6 +99,13 @@ class DataCollector:
                 
                 if fixtures:
                     logger.info(f"🎯 Primeiro jogo: {fixtures[0]}")
+                    # Log de todos os jogos encontrados
+                    for idx, fixture in enumerate(fixtures, 1):
+                        teams = fixture.get('teams', {})
+                        home = teams.get('home', {}).get('name', 'TBD')
+                        away = teams.get('away', {}).get('name', 'TBD')
+                        date = fixture.get('fixture', {}).get('date', 'TBD')
+                        logger.info(f"  {idx}. {home} vs {away} - {date}")
                 
                 return [self._parse_fixture(f, team_id) for f in fixtures]
             else:
@@ -105,6 +118,7 @@ class DataCollector:
             logger.error(traceback.format_exc())
             
         return []
+
         
     def get_live_matches(self, team_id: int) -> List[Dict]:
         """Get currently live matches for team"""
