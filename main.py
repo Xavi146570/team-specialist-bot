@@ -176,7 +176,7 @@ class TeamSpecialistBot:
                 
                 logger.info(f"📊 Triggers detected: {len(active_triggers)}")
                 
-                if not active_triggers or len(active_triggers) < 8:
+                if not active_triggers or len(active_triggers) < 3:
                     logger.info(f"⏭️ Skipping - insufficient triggers")
                     continue
                 
