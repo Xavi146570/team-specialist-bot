@@ -20,10 +20,7 @@ class DataCollector:
         }
         
     def get_team_history(self, team_id: int, years: int = 5) -> List[Dict]:
-        """
-        Fetch complete match history for team
-        Returns last 5 years of matches
-        """
+        """Fetch complete match history for team"""
         all_matches = []
         current_year = datetime.now().year
         
@@ -35,7 +32,7 @@ class DataCollector:
                     params={
                         'team': team_id,
                         'season': year,
-                        'status': 'FT'  # Only finished matches
+                        'status': 'FT'
                     }
                 )
                 
@@ -54,12 +51,12 @@ class DataCollector:
         logger.info(f"Total matches collected: {len(all_matches)}")
         return all_matches
         
-        def get_upcoming_fixtures(self, team_id: int, days: int = 7) -> List[Dict]:
+    def get_upcoming_fixtures(self, team_id: int, days: int = 7) -> List[Dict]:
         """Get upcoming fixtures in next N days"""
         try:
             today = datetime.now()
             end_date = today + timedelta(days=days)
-            current_season = today.year  # ← ADICIONAR ISTO
+            current_season = today.year
             
             logger.info(f"🔍 Buscando jogos de {today.strftime('%Y-%m-%d')} até {end_date.strftime('%Y-%m-%d')} para team_id={team_id}")
             logger.info(f"🔑 API Key presente: {'Sim' if self.api_key else 'NÃO!'}")
@@ -67,13 +64,13 @@ class DataCollector:
             
             params = {
                 'team': team_id,
-                'season': current_season,  # ← ADICIONAR ISTO!
+                'season': current_season,
                 'from': today.strftime('%Y-%m-%d'),
                 'to': end_date.strftime('%Y-%m-%d'),
-                'status': 'NS'  # Not started
+                'status': 'NS'
             }
             
-            logger.info(f"📋 Parâmetros da requisição: {params}")
+            logger.info(f"📋 Parâmetros: {params}")
             
             response = requests.get(
                 f'{self.base_url}/fixtures',
@@ -82,24 +79,20 @@ class DataCollector:
                 timeout=10
             )
             
-            logger.info(f"📡 Status da API: {response.status_code}")
+            logger.info(f"📡 Status: {response.status_code}")
             
             if response.status_code == 200:
                 data = response.json()
                 
-                # Verificar se há erros
                 if data.get('errors'):
-                    logger.error(f"❌ API retornou erros: {data['errors']}")
+                    logger.error(f"❌ API erros: {data['errors']}")
                 
-                # Log da resposta completa (primeiros 1000 chars)
-                logger.info(f"📊 Response JSON (preview): {str(data)[:1000]}")
+                logger.info(f"📊 Response: {str(data)[:1000]}")
                 
                 fixtures = data.get('response', [])
                 logger.info(f"✅ API retornou {len(fixtures)} jogos")
                 
                 if fixtures:
-                    logger.info(f"🎯 Primeiro jogo: {fixtures[0]}")
-                    # Log de todos os jogos encontrados
                     for idx, fixture in enumerate(fixtures, 1):
                         teams = fixture.get('teams', {})
                         home = teams.get('home', {}).get('name', 'TBD')
@@ -109,16 +102,15 @@ class DataCollector:
                 
                 return [self._parse_fixture(f, team_id) for f in fixtures]
             else:
-                logger.error(f"❌ Erro da API: Status {response.status_code}")
+                logger.error(f"❌ Erro: {response.status_code}")
                 logger.error(f"❌ Response: {response.text[:500]}")
                 
         except Exception as e:
-            logger.error(f"❌ Exceção ao buscar fixtures: {e}")
+            logger.error(f"❌ Exceção: {e}")
             import traceback
             logger.error(traceback.format_exc())
             
         return []
-
         
     def get_live_matches(self, team_id: int) -> List[Dict]:
         """Get currently live matches for team"""
@@ -155,11 +147,9 @@ class DataCollector:
         team_goals = goals['home'] if is_home else goals['away']
         opponent_goals = goals['away'] if is_home else goals['home']
         
-        # Handle None values for halftime scores
         ht_home = score.get('halftime', {}).get('home') if score.get('halftime') else None
         ht_away = score.get('halftime', {}).get('away') if score.get('halftime') else None
         
-        # Default to 0 if halftime data is missing
         ht_team = (ht_home if is_home else ht_away) or 0
         ht_opponent = (ht_away if is_home else ht_home) or 0
         
