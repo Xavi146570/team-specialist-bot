@@ -56,7 +56,10 @@ class DataCollector:
         try:
             today = datetime.now()
             end_date = today + timedelta(days=days)
-            current_season = today.year
+            
+            # ✅ CORRIGIDO: época europeia começa em Agosto
+            # Jan-Jul = ano anterior (ex: Fev 2026 → season 2025)
+            current_season = today.year if today.month >= 8 else today.year - 1
             
             logger.info(f"🔍 Buscando jogos de {today.strftime('%Y-%m-%d')} até {end_date.strftime('%Y-%m-%d')} para team_id={team_id}")
             logger.info(f"🔑 API Key presente: {'Sim' if self.api_key else 'NÃO!'}")
