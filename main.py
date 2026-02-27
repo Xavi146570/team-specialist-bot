@@ -152,15 +152,16 @@ class TeamSpecialistBot:
                             
                             # Create trading plan
                             plan = {
-                                'team_name': team_name,
-                                'match_id': match_id,
-                                'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
-                                'match_date': full_match['fixture']['date'],
-                                'league': full_match['league']['name'],
-                                'triggers': active_triggers,
-                                'confidence': confidence,
-                                'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
-                            }
+    'team_name': team_name,
+    'match_id': match_id,
+    'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
+    'match_date': full_match['fixture']['date'],          # podes manter se usas no frontend
+    'match_datetime': full_match['fixture']['date'],      # ✅ ESTE é o que o Supabase exige
+    'league': full_match['league']['name'],
+    'triggers': active_triggers,
+    'confidence': confidence,
+    'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
+}
                             
                             # Save to database
                             self.db.save_trading_plan(plan)
