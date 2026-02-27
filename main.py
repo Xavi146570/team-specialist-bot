@@ -190,7 +190,7 @@ class TeamSpecialistBot:
     try:
         response = requests.get(
             f'{self.data_collector.base_url}/fixtures',
-            headers=self.data_collector.headers,  # ✅ CORRIGIDO: era self.headers
+            headers=self.data_collector.headers,
             params={'id': match_id},
             timeout=10
         )
