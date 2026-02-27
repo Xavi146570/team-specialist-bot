@@ -82,8 +82,6 @@ class TeamSpecialistBot:
                 
             except Exception as e:
                 logger.error(f"Error analyzing {team_name}: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
                 continue
         
         logger.info("✅ Weekly analysis complete!")
@@ -92,25 +90,33 @@ class TeamSpecialistBot:
         """Check for upcoming matches and create opportunities"""
         logger.info("Checking upcoming matches...")
         
+        # Get today's date string for filtering
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        
         for team_name, team_id in self.TEAMS.items():
             try:
-                # Get upcoming matches (next 7 days)
+                # Get upcoming matches (next 1 day to ensure we catch today's games)
                 matches = self.data_collector.get_upcoming_fixtures(
                     team_id=team_id,
-                    days=7
+                    days=1
                 )
                 
                 if not matches:
                     logger.info(f"⏭️ No upcoming matches for {team_name}")
                     continue
                 
-                logger.info(f"✅ Found {len(matches)} upcoming matches for {team_name}")
+                # Filter to only include matches starting TODAY
+                today_matches = [m for m in matches if m['date'].startswith(today_str)]
+                
+                if not today_matches:
+                    logger.info(f"⏭️ No matches scheduled for today for {team_name}")
+                    continue
+
+                logger.info(f"✅ Found {len(today_matches)} matches for today for {team_name}")
                 
                 # Analyze each match
-                for match in matches:
+                for match in today_matches:
                     try:
-                        # NOTE: get_upcoming_fixtures returns simplified structure
-                        # Need to fetch full match details from API
                         match_id = match['id']
                         
                         # Get full match details
@@ -138,8 +144,6 @@ class TeamSpecialistBot:
                             analysis
                         )
                         
-                        logger.info(f"📊 Triggers detected: {len(active_triggers)}")
-                        
                         # Create opportunity if enough triggers
                         if len(active_triggers) >= 1:
                             logger.info("✅ Creating trading plan...")
@@ -152,16 +156,16 @@ class TeamSpecialistBot:
                             
                             # Create trading plan
                             plan = {
-    'team_name': team_name,
-    'match_id': match_id,
-    'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
-    'match_date': full_match['fixture']['date'],          # podes manter se usas no frontend
-    'match_datetime': full_match['fixture']['date'],      # ✅ ESTE é o que o Supabase exige
-    'league': full_match['league']['name'],
-    'triggers': active_triggers,
-    'confidence': confidence,
-    'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
-}
+                                'team_name': team_name,
+                                'match_id': match_id,
+                                'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
+                                'match_date': full_match['fixture']['date'],
+                                'match_datetime': full_match['fixture']['date'], # ✅ FIX: Added for Supabase constraint
+                                'league': full_match['league']['name'],
+                                'triggers': active_triggers,
+                                'confidence': confidence,
+                                'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
+                            }
                             
                             # Save to database
                             self.db.save_trading_plan(plan)
@@ -175,14 +179,10 @@ class TeamSpecialistBot:
                     
                     except Exception as e:
                         logger.error(f"❌ Error analyzing match: {e}")
-                        import traceback
-                        logger.error(traceback.format_exc())
                         continue
             
             except Exception as e:
                 logger.error(f"❌ Error checking {team_name} fixtures: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
                 continue
     
     def _get_match_details(self, match_id: int) -> Dict:
@@ -190,7 +190,7 @@ class TeamSpecialistBot:
         try:
             response = requests.get(
                 f'{self.data_collector.base_url}/fixtures',
-                headers=self.data_collector.headers,
+                headers=self.headers,
                 params={'id': match_id},
                 timeout=10
             )
@@ -220,9 +220,8 @@ class TeamSpecialistBot:
             'match_id': str(plan['match_id'])
         }
         
-        # Insert directly into opportunities table
         try:
-            result = self.db.client.table('opportunities').insert(opportunity).execute()
+            self.db.client.table('opportunities').insert(opportunity).execute()
             logger.info(f"✅ Opportunity created: {opportunity['match_info']}")
         except Exception as e:
             logger.error(f"❌ Error creating opportunity: {e}")
@@ -230,66 +229,47 @@ class TeamSpecialistBot:
     def _get_recommended_markets(self, analysis: Dict, triggers: List[str]) -> List[str]:
         """Get recommended markets based on analysis"""
         markets = []
-        
         if 'vs_bottom5_home' in triggers or 'vs_bottom5_away' in triggers:
             markets.append('Over 2.5')
             markets.append('BTTS')
-        
         if 'classico' in triggers:
             markets.append('Over 2.5 + BTTS')
-        
         if 'champions_week' in triggers:
             markets.append('Under 2.5')
-        
         return markets if markets else ['Over 2.5']
-    
+
     def monitor_live_matches(self):
         """Monitor live matches for in-play opportunities"""
-        try:
-            # Live monitoring disabled for now
-            logger.info("Live monitoring: No live matches to check")
-        except Exception as e:
-            logger.error(f"Error in live monitoring: {e}")
+        logger.info("Live monitoring: No live matches to check")
 
 def main():
     """Main application entry point"""
     logger.info("🚀 Team Specialist Bot started!")
-    
     bot = TeamSpecialistBot()
-    
     scheduler = BlockingScheduler()
     
     scheduler.add_job(
         bot.run_weekly_analysis,
         CronTrigger(day_of_week='wed', hour=10, minute=0),
-        id='weekly_analysis',
-        name='Weekly Historical Analysis'
+        id='weekly_analysis'
     )
     
     scheduler.add_job(
         bot.check_upcoming_matches,
         CronTrigger(hour=7, minute=0),
-        id='daily_check',
-        name='Daily Match Check'
+        id='daily_check'
     )
     
     scheduler.add_job(
         bot.monitor_live_matches,
         'interval',
         minutes=2,
-        id='live_monitor',
-        name='Live Match Monitor'
+        id='live_monitor'
     )
-    
-    logger.info("📅 Scheduled jobs:")
-    logger.info("  - Weekly analysis: Wednesday 10:00")
-    logger.info("  - Daily match check: Every day 7:00")
-    logger.info("  - Live monitoring: Every 2 minutes")
     
     logger.info("🧪 Running initial check...")
     bot.check_upcoming_matches()
     
-    logger.info("⏰ Starting scheduler...")
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
