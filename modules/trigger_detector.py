@@ -37,7 +37,6 @@ class TriggerDetector:
             
         logger.info(f"🔍 Analyzing {len(matches)} matches for team {team_id}")
         
-        # Separate home and away matches
         home_matches = [m for m in matches if m['teams']['home']['id'] == team_id]
         away_matches = [m for m in matches if m['teams']['away']['id'] == team_id]
         
@@ -69,10 +68,6 @@ class TriggerDetector:
             if not match.get('goals') or not match.get('statistics'):
                 continue
                 
-            home_team = match['teams']['home']
-            away_team = match['teams']['away']
-            
-            # Get goals
             home_goals = match['goals']['home'] or 0
             away_goals = match['goals']['away'] or 0
             
@@ -83,7 +78,6 @@ class TriggerDetector:
                 goals_scored.append(away_goals)
                 goals_conceded.append(home_goals)
             
-            # Get corners from statistics
             stats = match['statistics']
             home_corners = self._extract_stat(stats, 'home', 'Corner Kicks')
             away_corners = self._extract_stat(stats, 'away', 'Corner Kicks')
@@ -157,27 +151,21 @@ class TriggerDetector:
             'second_half_momentum': 0
         }
         
-        # Sort matches chronologically
         sorted_matches = sorted(matches, key=lambda x: x['fixture']['date'])
         
         for i, match in enumerate(sorted_matches):
             is_home = match['teams']['home']['id'] == team_id
             opponent_id = match['teams']['away']['id'] if is_home else match['teams']['home']['id']
             
-            # Pre-match triggers
             if is_home:
-                # Classico detection
                 if opponent_id in self.BIG3_IDS:
                     triggers['classico'] += 1
                 
-                # Post loss detection
                 if i > 0:
                     prev_match = sorted_matches[i-1]
                     if self._is_loss(prev_match, team_id):
                         triggers['post_loss_home'] += 1
             
-            # Half-time triggers (would need half-time data)
-            # Simplified - based on final score patterns
             if match.get('goals'):
                 home_goals = match['goals']['home'] or 0
                 away_goals = match['goals']['away'] or 0
@@ -213,24 +201,15 @@ class TriggerDetector:
     def check_match_triggers(self, match: Dict, analysis: Dict) -> List[str]:
         """
         Check which triggers are active for upcoming match
-        
-        Args:
-            match: Match data from API
-            analysis: Historical analysis for the team
-            
-        Returns:
-            List of active trigger names
         """
         active = []
         
-        # Extract match details
         team_id = None
         opponent_id = None
         is_home = False
         match_date = datetime.fromisoformat(match['fixture']['date'].replace('Z', '+00:00'))
         league_id = match['league']['id']
         
-        # Determine if our team is home or away
         home_id = match['teams']['home']['id']
         away_id = match['teams']['away']['id']
         
@@ -250,37 +229,28 @@ class TriggerDetector:
         logger.info(f"📍 Team {team_id} is {'HOME' if is_home else 'AWAY'} vs opponent {opponent_id}")
         
         # TRIGGER 1-2: vs_bottom5_home / vs_top3_home
-        # Heuristic: If opponent is NOT in Big 3 and league is Taça → assume "bottom 5"
         if is_home:
             if opponent_id not in self.BIG3_IDS:
-                if league_id == self.TACA_PORTUGAL_ID:
+                # ✅ CORRIGIDO: aceita Primeira Liga (94) e Taça de Portugal (96)
+                if league_id in [self.PRIMEIRA_LIGA_ID, self.TACA_PORTUGAL_ID]:
                     active.append('vs_bottom5_home')
-                    logger.info("✅ Trigger: vs_bottom5_home (Taça opponent)")
+                    logger.info("✅ Trigger: vs_bottom5_home (Liga/Taça opponent)")
                 elif league_id in [self.CHAMPIONS_LEAGUE_ID, self.EUROPA_LEAGUE_ID]:
                     active.append('vs_top3_home')
                     logger.info("✅ Trigger: vs_top3_home (European competition)")
-        
-        # TRIGGER 3: post_loss_home (DISABLED - too slow)
-        # Would need to fetch match history
         
         # TRIGGER 4: classico
         if opponent_id in self.BIG3_IDS:
             active.append('classico')
             logger.info("✅ Trigger: classico (Big 3 derby)")
         
-        # TRIGGER 5: champions_week (DISABLED - too slow)
-        # Would need to fetch all upcoming fixtures
-        
         # TRIGGER 6: vs_bottom5_away
+        # ✅ CORRIGIDO: aceita Primeira Liga (94) e Taça de Portugal (96)
         if not is_home:
             if opponent_id not in self.BIG3_IDS:
-                if league_id == self.TACA_PORTUGAL_ID:
+                if league_id in [self.PRIMEIRA_LIGA_ID, self.TACA_PORTUGAL_ID]:
                     active.append('vs_bottom5_away')
-                    logger.info("✅ Trigger: vs_bottom5_away (Taça opponent)")
-        
-        # TRIGGERS 7-12: In-play triggers (ao intervalo)
-        # Cannot be detected pre-match - would need live data
-        # We skip these for pre-match analysis
+                    logger.info("✅ Trigger: vs_bottom5_away (Liga/Taça opponent)")
         
         logger.info(f"📊 Total active triggers: {len(active)} - {active}")
         
@@ -289,13 +259,6 @@ class TriggerDetector:
     def calculate_trigger_score(self, active_triggers: List[str], analysis: Dict) -> int:
         """
         Calculate confidence score based on active triggers
-        
-        Score system:
-        - Each trigger: +10 points
-        - Classico: +20 points (double weight)
-        - Champions week: +15 points (extra weight)
-        
-        Returns: Score 0-100
         """
         score = 0
         
@@ -307,5 +270,4 @@ class TriggerDetector:
             else:
                 score += 10
         
-        # Cap at 100
         return min(score, 100)
