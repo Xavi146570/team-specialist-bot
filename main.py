@@ -186,24 +186,24 @@ class TeamSpecialistBot:
                 continue
     
     def _get_match_details(self, match_id: int) -> Dict:
-        """Fetch full match details from API"""
-        try:
-            response = requests.get(
-                f'{self.data_collector.base_url}/fixtures',
-                headers=self.headers,
-                params={'id': match_id},
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                fixtures = data.get('response', [])
-                if fixtures:
-                    return fixtures[0]
-        except Exception as e:
-            logger.error(f"Error fetching match {match_id}: {e}")
-        
-        return None
+    """Fetch full match details from API"""
+    try:
+        response = requests.get(
+            f'{self.data_collector.base_url}/fixtures',
+            headers=self.data_collector.headers,  # ✅ CORRIGIDO: era self.headers
+            params={'id': match_id},
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            fixtures = data.get('response', [])
+            if fixtures:
+                return fixtures[0]
+    except Exception as e:
+        logger.error(f"Error fetching match {match_id}: {e}")
+
+    return None
     
     def _create_opportunity(self, plan: Dict):
         """Create opportunity record for frontend"""
