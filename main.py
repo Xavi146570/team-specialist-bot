@@ -138,17 +138,17 @@ class TeamSpecialistBot:
                             )
                             
                             plan = {
-                                'team_name': team_name,
-                                'match_id': match_id,
-                                'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
-                                'match_date': full_match['fixture']['date'],
-                                'match_datetime': full_match['fixture']['date'],
-                                'league': full_match['league']['name'],
-                                'triggers': active_triggers,
-                                'confidence': confidence,
-                                'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
-                            }
-                            
+    'team_name': team_name,
+    'match_id': match_id,
+    'opponent': away_name if full_match['teams']['home']['id'] == team_id else home_name,
+    'opponent_team': away_name if full_match['teams']['home']['id'] == team_id else home_name,  # ✅ NOVO
+    'match_date': full_match['fixture']['date'],
+    'match_datetime': full_match['fixture']['date'],
+    'league': full_match['league']['name'],
+    'triggers': active_triggers,
+    'confidence': confidence,
+    'recommended_markets': self._get_recommended_markets(analysis, active_triggers)
+}
                             self.db.save_trading_plan(plan)
                             self._create_opportunity(plan)
                             
